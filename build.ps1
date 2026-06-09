@@ -19,7 +19,7 @@ Gothic 1 Remake — Tumblersmith v$version
 ONLINE
 ------
 No installation needed — open in any browser:
-https://wealdly.github.io/g1r-lockpick-helper/
+https://wealdly.github.io/tumblersmith/
 
 OFFLINE / ALONGSIDE THE GAME
 ------------------------------
