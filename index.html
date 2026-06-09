@@ -157,9 +157,26 @@
       font-size: 9px;
       color: var(--dim);
       padding: 2px 0 4px;
-      width: 28px;
+      width: 30px;
     }
-    .ch-sep { width: 8px; }
+    .ch-sep,
+    .csep,
+    .cfooter-sep {
+      width: 8px;
+      position: relative;
+    }
+    .ch-sep::after,
+    .csep::after,
+    .cfooter-sep::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 2px;
+      transform: translateX(-50%);
+      background: var(--border2);
+    }
     .ch-mat {
       font-family: 'Cinzel', serif;
       font-size: 11px;
@@ -167,7 +184,6 @@
       padding: 4px 2px;
       width: 34px;
     }
-    .ch-mat.first-mat { border-left: 2px solid var(--border2); padding-left: 8px; }
 
     /* body rows */
     .combined-table tbody tr.row-excluded { opacity: 0.38; }
@@ -181,10 +197,8 @@
       white-space: nowrap;
       width: 30px;
     }
-    .cslot { width: 28px; padding: 2px 0; }
-    .csep  { width: 8px; }
+    .cslot { width: 30px; padding: 2px 0; }
     .cmat  { width: 34px; padding: 2px 0; }
-    .cmat.first-mat { border-left: 2px solid var(--border2); padding-left: 8px; }
 
     .slot {
       width: 24px;
@@ -198,6 +212,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      margin: 0 auto;
     }
 
     .slot:hover { border-color: var(--border2); background: #181410; }
@@ -249,9 +264,7 @@
       vertical-align: middle;
     }
     .cfooter-slots { text-align: left; padding-right: 8px; }
-    .cfooter-sep { }
-    .cfooter-mat  { border-left: 2px solid var(--border2); }
-    .combined-table .cfooter-mat { padding-left: 8px; }
+    .combined-table .cfooter-mat { padding-left: 0; }
     .cfooter-slots .legend { margin-top: 0; justify-content: center; }
     .cfooter-mat .legend { margin-top: 0; flex-wrap: nowrap; white-space: nowrap; justify-content: center; }
     .cfooter-mat .legend-item { white-space: nowrap; }
@@ -288,7 +301,7 @@
     .ld-pin::after    { content: ''; position: absolute; inset: 2px; border-radius: 50%; background: var(--pin); }
 
     .cell-btn {
-      width: 30px;
+      width: 28px;
       height: 26px;
       border-radius: 3px;
       border: 1px solid var(--border);
@@ -622,7 +635,14 @@ const PLATE_COLORS = ['#e87840','#50aadc','#a060d0','#50c060','#d0a030','#d05878
 const N = 7;
 const BITS_PER_PLATE = 3;
 const MAX_STATE = 1 << (N * BITS_PER_PLATE);
-const DIRS = [1, -1];
+const DIGIT_MASK = (1 << BITS_PER_PLATE) - 1;
+const PLATE_SHIFTS = Array.from({ length: N }, (_, i) => i * BITS_PER_PLATE);
+const PLATE_MASKS = PLATE_SHIFTS.map((shift) => DIGIT_MASK << shift);
+const seenStamp = new Uint16Array(MAX_STATE);
+const parentState = new Uint32Array(MAX_STATE);
+const moveCode = new Uint8Array(MAX_STATE);
+const queue = new Uint32Array(MAX_STATE);
+let nextSolveStamp = 1;
 let pins   = [];     // pins[p] = 0 (excluded) or 1-7 (starting position)
 let matrix = [];     // matrix[i][j] = effect on plate j when plate i moves right
                      // diagonal always = 1
@@ -663,9 +683,42 @@ function resetState() {
 
 function init() {
   if (!loadState()) resetState();
-  if (pins.some(v => v > 0)) solution = bfsSolve(pins);
   renderCombined();
   renderSolution();
+}
+
+function getSetupGuide(hasActive) {
+  if (!hasActive) {
+    return `<div class="setup-guide">
+      <div class="setup-step">
+        <span class="setup-num">1</span>
+        <span class="setup-text">Click a slot on each active plate to set its <em>starting position</em>.</span>
+      </div>
+      <div class="setup-step">
+        <span class="setup-num">2</span>
+        <span class="setup-text">Move each plate <em>right</em> and record the reactions in the matrix using <span class="sv vp">+</span>, <span class="sv vn">−</span>, or &ndash;.</span>
+      </div>
+      <div class="setup-step">
+        <span class="setup-num">3</span>
+        <span class="setup-text">Press <em>Solve</em> once the visible plates and matrix are filled in.</span>
+      </div>
+    </div>`;
+  }
+
+  return `<div class="setup-guide">
+    <div class="setup-step">
+      <span class="setup-num">1</span>
+      <span class="setup-text">Move each active plate <em>right</em> and update the visible matrix with what the lock does.</span>
+    </div>
+    <div class="setup-step">
+      <span class="setup-num">2</span>
+      <span class="setup-text">Check the visible rows and columns for missing or contradictory reactions.</span>
+    </div>
+    <div class="setup-step">
+      <span class="setup-num">3</span>
+      <span class="setup-text">Press <em>Solve</em> to search for a path to slot 4.</span>
+    </div>
+  </div>`;
 }
 
 // ─── Combined lock + matrix table ─────────────────────────────────────────────
@@ -694,7 +747,7 @@ function renderCombined() {
 
   for (let j = 0; j < N; j++) {
     const th = document.createElement('th');
-    th.className = 'ch-mat' + (j === 0 ? ' first-mat' : '');
+    th.className = 'ch-mat';
     th.textContent = `P${j + 1}`;
     th.style.color = pins[j] === 0 ? 'var(--dim)' : PLATE_COLORS[j % PLATE_COLORS.length];
     if (j === 0) th.title = 'Each row = a plate moved right. Each cell = effect on the column plate: + same direction, − opposite, – none.';
@@ -743,7 +796,7 @@ function renderCombined() {
     // Matrix cells
     for (let j = 0; j < N; j++) {
       const td = tr.insertCell();
-      td.className = 'cmat' + (j === 0 ? ' first-mat' : '');
+      td.className = 'cmat';
       const btn = document.createElement('button');
       btn.className = 'cell-btn';
       const v = matrix[p][j];
@@ -807,75 +860,107 @@ function renderCombined() {
 // ─── BFS Solver ───────────────────────────────────────────────────────────────
 function encode(state) {
   let k = 0;
-  for (let i = 0; i < N; i++) k |= (state[i] << (i * BITS_PER_PLATE));
+  for (let i = 0; i < N; i++) k |= (state[i] << PLATE_SHIFTS[i]);
   return k;
+}
+
+function beginSolveStamp() {
+  if (nextSolveStamp === 0xffff) {
+    seenStamp.fill(0);
+    nextSolveStamp = 1;
+  }
+  return nextSolveStamp++;
+}
+
+function buildMoves(active) {
+  const moves = [];
+
+  for (const p of active) {
+    const row = matrix[p];
+    const right = [];
+    const left = [];
+
+    for (const j of active) {
+      const effect = row[j];
+      if (effect === 0) continue;
+
+      const shift = PLATE_SHIFTS[j];
+      const mask = PLATE_MASKS[j];
+      right.push(shift, mask, effect);
+      left.push(shift, mask, -effect);
+    }
+
+    moves.push({ code: (p << 1) | 1, effects: right });
+    moves.push({ code: p << 1, effects: left });
+  }
+
+  return moves;
 }
 
 function bfsSolve(initial) {
   const active = [];
-  for (let p = 0; p < N; p++) if (initial[p] > 0) active.push(p);
-  if (active.length === 0) return null;
-
   let goalKey = 0;
-  for (const p of active) goalKey |= (4 << (p * BITS_PER_PLATE));
+  for (let p = 0; p < N; p++) {
+    if (initial[p] === 0) continue;
+    active.push(p);
+    goalKey |= (4 << PLATE_SHIFTS[p]);
+  }
+  if (active.length === 0) return null;
 
   const initKey = encode(initial);
   if (initKey === goalKey) return [];
 
-  // Fixed-size typed arrays are faster and allocation-free for this 18-bit state space.
-  const parent = new Int32Array(MAX_STATE);
-  parent.fill(-1);
-  const moveCode = new Int16Array(MAX_STATE);
-  moveCode.fill(-1);
-  const queue = new Uint32Array(MAX_STATE);
+  const moves = buildMoves(active);
+  const stamp = beginSolveStamp();
   let head = 0;
   let tail = 0;
 
-  parent[initKey] = initKey;
+  seenStamp[initKey] = stamp;
+  parentState[initKey] = initKey;
   queue[tail++] = initKey;
 
   while (head < tail) {
     const stateKey = queue[head++];
 
-    for (const p of active) {
-      const row = matrix[p];
-      for (const dir of DIRS) {
-        let nk = 0;
-        let ok = true;
+    for (const move of moves) {
+      let nk = stateKey;
+      let ok = true;
 
-        for (let j = 0; j < N; j++) {
-          const cur = (stateKey >> (j * BITS_PER_PLATE)) & 7;
-          if (cur === 0) continue; // excluded plate stays 0
+      for (let i = 0; i < move.effects.length; i += 3) {
+        const shift = move.effects[i];
+        const mask = move.effects[i + 1];
+        const delta = move.effects[i + 2];
+        const cur = (stateKey >> shift) & DIGIT_MASK;
+        if (cur === 0) continue;
 
-          const next = cur + dir * row[j];
-          if (next < 1 || next > 7) {
-            ok = false;
-            break;
-          }
-          nk |= (next << (j * BITS_PER_PLATE));
+        const next = cur + delta;
+        if (next < 1 || next > 7) {
+          ok = false;
+          break;
         }
 
-        if (!ok) continue;
-
-        if (parent[nk] !== -1) continue;
-
-        parent[nk] = stateKey;
-        moveCode[nk] = (p << 1) | (dir === 1 ? 1 : 0);
-
-        if (nk === goalKey) {
-          const path = [];
-          let cur = nk;
-          while (cur !== initKey) {
-            const code = moveCode[cur];
-            path.push({ plate: code >> 1, dir: (code & 1) ? 1 : -1 });
-            cur = parent[cur];
-          }
-          path.reverse();
-          return path;
-        }
-
-        queue[tail++] = nk;
+        nk = (nk & ~mask) | (next << shift);
       }
+
+      if (!ok || seenStamp[nk] === stamp) continue;
+
+      seenStamp[nk] = stamp;
+      parentState[nk] = stateKey;
+      moveCode[nk] = move.code;
+
+      if (nk === goalKey) {
+        const path = [];
+        let cur = nk;
+        while (cur !== initKey) {
+          const code = moveCode[cur];
+          path.push({ plate: code >> 1, dir: (code & 1) ? 1 : -1 });
+          cur = parentState[cur];
+        }
+        path.reverse();
+        return path;
+      }
+
+      queue[tail++] = nk;
     }
   }
   return null;
@@ -936,34 +1021,22 @@ function buildGroupPatterns(groups) {
 function renderSolution() {
   const card    = document.getElementById('sol-card');
   const content = document.getElementById('sol-content');
+  const hasActive = pins.some(v => v > 0);
 
-  if (solution === undefined) { solution = null; }
   card.style.display = '';
   content.innerHTML  = '';
 
+  if (solution === undefined) {
+    content.innerHTML = getSetupGuide(hasActive);
+    return;
+  }
+
   // ── No solution ──
   if (solution === null) {
-    const hasActive = pins.some(v => v > 0);
     if (hasActive) {
       content.innerHTML = `<div class="no-sol">No solution found — verify the matrix, some connections may be missing or incorrect.</div>`;
     } else {
-      content.innerHTML = `<div class="setup-guide">
-        <div class="setup-step">
-          <span class="setup-num">1</span>
-          <span class="setup-text">Click a slot on each active plate to set its <em>starting position</em>.</span>
-        </div>
-        <div class="setup-step">
-          <span class="setup-num">2</span>
-          <span class="setup-text">Fill in the matrix: move each plate <em>right</em> in-game and note which other plates move —
-            <span class="sv vp">+</span> if it moves the <em>same direction</em>,
-            <span class="sv vn">&minus;</span> if it moves the <em>opposite direction</em>.
-          </span>
-        </div>
-        <div class="setup-step">
-          <span class="setup-num">3</span>
-          <span class="setup-text">Press <em>Solve</em> to generate the step-by-step solution.</span>
-        </div>
-      </div>`;
+      content.innerHTML = getSetupGuide(false);
     }
     return;
   }

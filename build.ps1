@@ -1,4 +1,4 @@
-$version  = "1.0"
+$version  = "1.1"
 $distName = "tumblersmith-v$version"
 $distDir  = "$PSScriptRoot\dist\$distName"
 $zipOut   = "$PSScriptRoot\dist\$distName.zip"
