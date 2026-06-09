@@ -2,7 +2,9 @@
 
 A browser-based companion tool for the lockpicking minigame in **Gothic 1 Remake**. Enter your plate positions and interaction matrix, and get an optimal step-by-step solution instantly.
 
-**Live:** https://wealdly.github.io/g1r-lockpick-helper/
+**Live:** https://wealdly.github.io/tumblersmith/
+
+**Repository:** https://github.com/wealdly/tumblersmith
 
 ---
 
