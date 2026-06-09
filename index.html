@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gothic 1 Remake — Lockpick Helper</title>
+  <title>Gothic 1 Remake — Tumblersmith</title>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Crimson+Text:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -68,6 +68,7 @@
       min-width: max-content;
     }
 
+    /* Keep solution content from widening main beyond the table panel. */
     #sol-card {
       width: 0;
       min-width: 100%;
@@ -96,35 +97,6 @@
         transparent 0%, var(--gold) 30%,
         var(--gold) 70%, transparent 100%);
       opacity: 0.35;
-    }
-
-    /* ── Plate count buttons ─────────────────────── */
-    .btn-group { display: flex; gap: 7px; }
-
-    .btn-count {
-      width: 30px;
-      height: 30px;
-      border: 1px solid var(--border);
-      background: var(--bg3);
-      color: var(--muted);
-      font-family: 'Cinzel', serif;
-      font-size: 14px;
-      border-radius: 2px;
-      cursor: pointer;
-      transition: all 0.13s;
-    }
-
-    .btn-count:hover {
-      border-color: var(--border2);
-      color: var(--text);
-      background: var(--bg4);
-    }
-
-    .btn-count.active {
-      border-color: var(--gold);
-      background: var(--bg4);
-      color: var(--gold2);
-      box-shadow: 0 0 10px rgba(176,120,40,0.28);
     }
 
     /* ── Panel layout ─────────────────────────────── */
@@ -209,9 +181,9 @@
       white-space: nowrap;
       width: 30px;
     }
-    .cslot { width: 28px; padding: 2px 0px; }
+    .cslot { width: 28px; padding: 2px 0; }
     .csep  { width: 8px; }
-    .cmat  { width: 34px; padding: 2px 0px; }
+    .cmat  { width: 34px; padding: 2px 0; }
     .cmat.first-mat { border-left: 2px solid var(--border2); padding-left: 8px; }
 
     .slot {
@@ -263,15 +235,7 @@
 
     /* slot-num removed (horizontal layout uses title tooltip) */
 
-    .plate-row.excluded { opacity: 0.38; }
     .cell-btn.excluded { color: var(--dim) !important; }
-
-    /* readonly slots (in solution preview) */
-    .slot.readonly { cursor: default; }
-    .slot.readonly:hover { border-color: var(--slot-border); background: var(--slot-bg); }
-    .slot.readonly.is-goal:hover { border-color: var(--goal-border); background: var(--goal-bg); }
-    .slot.readonly.is-active:hover { border-color: var(--pin); background: #1e1208; }
-    .slot.readonly.is-active.is-goal:hover { border-color: var(--solved-pin); background: #132010; }
 
     .legend {
       display: flex;
@@ -322,47 +286,6 @@
     .ld-goal   { border-color: var(--goal-border);  background: var(--goal-bg); }
     .ld-pin    { border-color: var(--pin);           background: #1e1208; }
     .ld-pin::after    { content: ''; position: absolute; inset: 2px; border-radius: 50%; background: var(--pin); }
-    .ld-solved { border-color: var(--solved-pin);    background: #132010; }
-    .ld-solved::after { content: ''; position: absolute; inset: 2px; border-radius: 50%; background: var(--solved-pin); }
-
-    /* ── Matrix ──────────────────────────────────── */
-    .matrix-hint {
-      font-size: 11px;
-      color: var(--muted);
-      font-style: italic;
-      line-height: 1.35;
-      margin-bottom: 6px;
-      white-space: normal;
-    }
-
-    .matrix-hint strong { color: var(--text2); font-style: normal; }
-
-    .matrix-wrap {
-      overflow-x: auto;
-      max-width: 100%;
-    }
-
-    .matrix-table { border-collapse: collapse; }
-
-    .matrix-table th {
-      font-family: 'Cinzel', serif;
-      font-size: 11px;
-      color: var(--gold);
-      letter-spacing: 0.06em;
-      padding: 4px 6px;
-      text-align: center;
-      border-bottom: 1px solid var(--border);
-      white-space: nowrap;
-    }
-
-    .matrix-table th.rh {
-      text-align: right;
-      color: var(--muted);
-      font-size: 10px;
-      padding-right: 8px;
-    }
-
-    .matrix-table td { padding: 2px; text-align: center; height: 30px; }
 
     .cell-btn {
       width: 30px;
@@ -450,13 +373,6 @@
       margin: 0;
     }
     .tips-box dd strong { color: var(--text); font-style: normal; }
-    .tips-box .tip-key {
-      display: inline-flex; align-items: center; justify-content: center;
-      background: var(--bg4); border: 1px solid var(--border2);
-      border-radius: 3px; font-family: 'Cinzel', serif;
-      font-size: 10px; padding: 0px 5px; line-height: 1.5;
-      color: var(--text2);
-    }
 
     .btn {
       padding: 7px 13px;
@@ -526,6 +442,8 @@
     .ptile + .ptile { border-left: 1px solid var(--border); }
     .ptile .sp { padding: 6px 2px; font-size: 14px; }
     .ptile .sc { font-size: 13px; padding: 0 4px 0 0; }
+
+    .sol-count {
       font-size: 12px;
       color: var(--muted);
       margin-bottom: 8px;
@@ -549,15 +467,6 @@
       overflow: hidden;
       cursor: default;
       user-select: none;
-    }
-
-    .sn {
-      font-size: 9px;
-      color: var(--dim);
-      padding: 0 6px;
-      flex-shrink: 0;
-      min-width: 26px;
-      text-align: center;
     }
 
     .sp {
@@ -593,16 +502,6 @@
       flex-shrink: 0;
       min-width: 28px;
       text-align: center;
-    }
-
-    .solved-banner {
-      margin-top: 6px;
-      padding: 6px 10px;
-      background: #0a1c05;
-      border: 1px solid #306018;
-      border-radius: 3px;
-      color: #68c038;
-      font-size: 12px;
     }
 
     .no-sol {
@@ -680,7 +579,7 @@
           <line x1="19" y1="29" x2="19" y2="31.5" stroke="#c07828" stroke-width="1.5" stroke-linecap="round" opacity="0.85"/>
         </svg>
         <div>
-          <h1>Lockpick Helper</h1>
+          <h1>Tumblersmith</h1>
           <p>Gothic 1 Remake</p>
         </div>
       </div>
@@ -721,25 +620,32 @@
 const PLATE_COLORS = ['#e87840','#50aadc','#a060d0','#50c060','#d0a030','#d05878'];
 
 const N = 6;
+const BITS_PER_PLATE = 3;
+const MAX_STATE = 1 << (N * BITS_PER_PLATE);
+const DIRS = [1, -1];
 let pins   = [];     // pins[p] = 0 (excluded) or 1-7 (starting position)
-let matrix = [];     // matrix[i][j] = effect on plate j when plate i moves R
+let matrix = [];     // matrix[i][j] = effect on plate j when plate i moves right
                      // diagonal always = 1
 let solution    = undefined;   // undefined=not tried, null=no solution, []=moves
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
-const SAVE_KEY = 'g1r_lockpick';
+const SAVE_KEY = 'g1r_tumblersmith';
+const LEGACY_SAVE_KEY = 'g1r_lockpick';
 function saveState() {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify({ pins, matrix })); } catch(e) {}
 }
 function loadState() {
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
+    const raw = localStorage.getItem(SAVE_KEY) || localStorage.getItem(LEGACY_SAVE_KEY);
     if (!raw) return false;
     const { pins: p, matrix: m } = JSON.parse(raw);
     if (Array.isArray(p) && p.length === N &&
         Array.isArray(m) && m.length === N &&
         m.every(r => Array.isArray(r) && r.length === N)) {
-      pins = p; matrix = m; return true;
+      pins = p;
+      matrix = m;
+      if (!localStorage.getItem(SAVE_KEY)) saveState();
+      return true;
     }
   } catch(e) {}
   return false;
@@ -901,14 +807,8 @@ function renderCombined() {
 // ─── BFS Solver ───────────────────────────────────────────────────────────────
 function encode(state) {
   let k = 0;
-  for (let i = 0; i < N; i++) k |= (state[i] << (i * 3));
+  for (let i = 0; i < N; i++) k |= (state[i] << (i * BITS_PER_PLATE));
   return k;
-}
-
-function decode(k) {
-  const s = [];
-  for (let i = 0; i < N; i++) s.push((k >> (i * 3)) & 7);
-  return s;
 }
 
 function bfsSolve(initial) {
@@ -916,51 +816,65 @@ function bfsSolve(initial) {
   for (let p = 0; p < N; p++) if (initial[p] > 0) active.push(p);
   if (active.length === 0) return null;
 
-  const goal = Array(N).fill(0);
-  for (const p of active) goal[p] = 4;
-  const goalKey = encode(goal);
+  let goalKey = 0;
+  for (const p of active) goalKey |= (4 << (p * BITS_PER_PLATE));
+
   const initKey = encode(initial);
   if (initKey === goalKey) return [];
 
-  const visited = new Map();
-  const queue   = [initKey];
+  // Fixed-size typed arrays are faster and allocation-free for this 18-bit state space.
+  const parent = new Int32Array(MAX_STATE);
+  parent.fill(-1);
+  const moveCode = new Int16Array(MAX_STATE);
+  moveCode.fill(-1);
+  const queue = new Uint32Array(MAX_STATE);
   let head = 0;
-  visited.set(initKey, null);
+  let tail = 0;
 
-  while (head < queue.length) {
+  parent[initKey] = initKey;
+  queue[tail++] = initKey;
+
+  while (head < tail) {
     const stateKey = queue[head++];
-    const state    = decode(stateKey);
 
     for (const p of active) {
-      for (const dir of [1, -1]) {
-        const ns  = [...state];
-        let   ok  = true;
+      const row = matrix[p];
+      for (const dir of DIRS) {
+        let nk = 0;
+        let ok = true;
 
         for (let j = 0; j < N; j++) {
-          if (state[j] === 0) continue;   // excluded plate stays 0
-          ns[j] = state[j] + dir * matrix[p][j];
-          if (ns[j] < 1 || ns[j] > 7) { ok = false; break; }
+          const cur = (stateKey >> (j * BITS_PER_PLATE)) & 7;
+          if (cur === 0) continue; // excluded plate stays 0
+
+          const next = cur + dir * row[j];
+          if (next < 1 || next > 7) {
+            ok = false;
+            break;
+          }
+          nk |= (next << (j * BITS_PER_PLATE));
         }
 
         if (!ok) continue;
 
-        const nk = encode(ns);
-        if (visited.has(nk)) continue;
+        if (parent[nk] !== -1) continue;
 
-        visited.set(nk, { prev: stateKey, move: { plate: p, dir } });
+        parent[nk] = stateKey;
+        moveCode[nk] = (p << 1) | (dir === 1 ? 1 : 0);
 
         if (nk === goalKey) {
           const path = [];
           let cur = nk;
-          while (visited.get(cur) !== null) {
-            const { prev, move } = visited.get(cur);
-            path.unshift(move);
-            cur = prev;
+          while (cur !== initKey) {
+            const code = moveCode[cur];
+            path.push({ plate: code >> 1, dir: (code & 1) ? 1 : -1 });
+            cur = parent[cur];
           }
+          path.reverse();
           return path;
         }
 
-        queue.push(nk);
+        queue[tail++] = nk;
       }
     }
   }
@@ -986,50 +900,6 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   renderCombined();
   renderSolution();
 });
-
-// ─── Consolidate moves ───────────────────────────────────────────────────────
-// Bubble-sort independent moves to group same-plate runs.
-// Two adjacent moves commute if applying either first keeps all plates in [1,7].
-function consolidateMoves(moves) {
-  const m = moves.slice();
-
-  function computeStates(seq) {
-    const st = [pins.slice()];
-    for (let i = 0; i < seq.length; i++) {
-      const s = st[i].slice();
-      const { plate: p, dir: d } = seq[i];
-      for (let j = 0; j < N; j++) { if (s[j] > 0) s[j] += d * matrix[p][j]; }
-      st.push(s);
-    }
-    return st;
-  }
-
-  // Up to O(n²) passes — enough to fully sort, avoids infinite loop
-  const maxPasses = m.length * m.length + 1;
-  for (let pass = 0; pass < maxPasses; pass++) {
-    let swapped = false;
-    const st = computeStates(m);
-    for (let i = 0; i < m.length - 1; i++) {
-      if (m[i].plate === m[i + 1].plate) continue;
-      // Only swap if m[i+1] joins a run immediately behind it
-      const prevPlate = i > 0 ? m[i - 1].plate : -1;
-      if (prevPlate !== m[i + 1].plate) continue;
-      // Check: applying m[i+1] to state st[i] stays in bounds
-      const { plate: pb, dir: db } = m[i + 1];
-      let ok = true;
-      for (let j = 0; j < N; j++) {
-        if (st[i][j] === 0) continue;
-        const nv = st[i][j] + db * matrix[pb][j];
-        if (nv < 1 || nv > 7) { ok = false; break; }
-      }
-      if (!ok) continue;
-      [m[i], m[i + 1]] = [m[i + 1], m[i]];
-      swapped = true;
-    }
-    if (!swapped) break;
-  }
-  return m;
-}
 
 // ─── Detect repeating group patterns ───────────────────────────────────────────────────
 function buildGroupPatterns(groups) {

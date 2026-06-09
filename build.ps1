@@ -1,5 +1,5 @@
 $version  = "1.0"
-$distName = "g1r-lockpick-helper-v$version"
+$distName = "tumblersmith-v$version"
 $distDir  = "$PSScriptRoot\dist\$distName"
 $zipOut   = "$PSScriptRoot\dist\$distName.zip"
 
@@ -8,12 +8,12 @@ if (Test-Path "$PSScriptRoot\dist") { Remove-Item "$PSScriptRoot\dist" -Recurse 
 New-Item -ItemType Directory -Path $distDir | Out-Null
 
 # Copy files
-New-Item -ItemType Directory -Path "$distDir\LockPickHelper" | Out-Null
-Copy-Item "$PSScriptRoot\index.html" "$distDir\LockPickHelper\index.html"
+New-Item -ItemType Directory -Path "$distDir\Tumblersmith" | Out-Null
+Copy-Item "$PSScriptRoot\index.html" "$distDir\Tumblersmith\index.html"
 
 # Write install instructions
 @"
-Gothic 1 Remake — Lockpick Solver v$version
+Gothic 1 Remake — Tumblersmith v$version
 ============================================
 
 ONLINE
@@ -23,10 +23,10 @@ https://wealdly.github.io/g1r-lockpick-helper/
 
 OFFLINE / ALONGSIDE THE GAME
 ------------------------------
-1. Copy the LockPickHelper\ folder into:
+1. Copy the Tumblersmith\ folder into:
    <Steam>\steamapps\common\Gothic 1 Remake\
 
-2. Open LockPickHelper\index.html in any browser.
+2. Open Tumblersmith\index.html in any browser.
 
 Your data is saved automatically in the browser (localStorage).
 "@ | Set-Content "$distDir\README.txt" -Encoding UTF8
