@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gothic 1 Remake — Lockpick Solver</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Crimson+Text:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:            #090805;
+      --bg2:           #111009;
+      --bg3:           #1b1810;
+      --bg4:           #231e15;
+      --border:        #2e2618;
+      --border2:       #5a4828;
+      --gold:          #b07828;
+      --gold2:         #d4a440;
+      --gold3:         #f0cc70;
+      --text:          #c8b888;
+      --text2:         #e4d4a8;
+      --muted:         #62523a;
+      --dim:           #38301e;
+      --slot-bg:       #0c0b08;
+      --slot-border:   #201c12;
+      --pin:           #c07828;
+      --goal-bg:       #0c1808;
+      --goal-border:   #306018;
+      --solved-pin:    #50b028;
+      --mat-pos-bg:    #0c1808;
+      --mat-pos:       #58aa28;
+      --mat-neg-bg:    #180c08;
+      --mat-neg:       #c43820;
+      --step-bg:       #201a0a;
+      --step-hover:    #1c1808;
+      --step-active:   #281e0c;
+      --step-done:     #0e1208;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Crimson Text', Georgia, serif;
+      font-size: 15px;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 35% at 50% 0%,
+        rgba(130,85,20,0.14) 0%, transparent 68%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ──────────────────────────────────── */
+    main {
+      position: relative;
+      z-index: 1;
+      margin: 0 auto;
+      padding: 8px 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: max-content;
+      min-width: max-content;
+    }
+
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 10px 12px;
+      box-shadow: 0 4px 28px rgba(0,0,0,0.45);
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+
+    .card::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 24px; right: 24px;
+      height: 1px;
+      background: linear-gradient(90deg,
+        transparent 0%, var(--gold) 30%,
+        var(--gold) 70%, transparent 100%);
+      opacity: 0.35;
+    }
+
+    /* ── Plate count buttons ─────────────────────── */
+    .btn-group { display: flex; gap: 7px; }
+
+    .btn-count {
+      width: 30px;
+      height: 30px;
+      border: 1px solid var(--border);
+      background: var(--bg3);
+      color: var(--muted);
+      font-family: 'Cinzel', serif;
+      font-size: 14px;
+      border-radius: 2px;
+      cursor: pointer;
+      transition: all 0.13s;
+    }
+
+    .btn-count:hover {
+      border-color: var(--border2);
+      color: var(--text);
+      background: var(--bg4);
+    }
+
+    .btn-count.active {
+      border-color: var(--gold);
+      background: var(--bg4);
+      color: var(--gold2);
+      box-shadow: 0 0 10px rgba(176,120,40,0.28);
+    }
+
+    /* ── Panel layout ─────────────────────────────── */
+    .panel-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+      width: 100%;
+    }
+    .panel-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .panel-title svg { width: 26px; height: 26px; flex-shrink: 0; }
+    .panel-title h1 {
+      font-family: 'Cinzel', serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--gold2);
+      letter-spacing: 0.06em;
+      text-shadow: 0 0 24px rgba(180,130,40,0.45);
+      line-height: 1.1;
+    }
+    .panel-title p {
+      font-size: 9px;
+      color: var(--muted);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+    .panel-btns { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+    .panel-body { width: 100%; display: flex; flex-direction: column; align-items: flex-start; }
+
+    /* ── Combined lock + matrix table ───────────────── */
+    .combined-table { border-collapse: collapse; width: auto; }
+
+    .combined-table th, .combined-table td {
+      padding: 0;
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    /* header row */
+    .ch-corner {
+      font-family: 'Cinzel', serif;
+      font-size: 9px;
+      color: var(--dim);
+      text-align: right;
+      padding-right: 6px;
+      white-space: nowrap;
+    }
+    .ch-slot {
+      font-size: 9px;
+      color: var(--dim);
+      padding: 2px 0 4px;
+      width: 28px;
+    }
+    .ch-sep { width: 8px; }
+    .ch-mat {
+      font-family: 'Cinzel', serif;
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      padding: 4px 2px;
+      width: 34px;
+    }
+    .ch-mat.first-mat { border-left: 2px solid var(--border2); padding-left: 8px; }
+
+    /* body rows */
+    .combined-table tbody tr.row-excluded { opacity: 0.38; }
+
+    .cplbl {
+      font-family: 'Cinzel', serif;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-align: right;
+      padding: 2px 6px 2px 0;
+      white-space: nowrap;
+      width: 30px;
+    }
+    .cslot { width: 28px; padding: 2px 0px; }
+    .csep  { width: 8px; }
+    .cmat  { width: 34px; padding: 2px 0px; }
+    .cmat.first-mat { border-left: 2px solid var(--border2); padding-left: 8px; }
+
+    .slot {
+      width: 24px;
+      height: 24px;
+      border: 1px solid var(--slot-border);
+      background: var(--slot-bg);
+      border-radius: 50%;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.12s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .slot:hover { border-color: var(--border2); background: #181410; }
+
+    .slot.is-goal {
+      border-color: var(--goal-border);
+      background: var(--goal-bg);
+    }
+
+    .slot.is-active {
+      border-color: var(--pin);
+      background: #1e1208;
+      box-shadow: 0 0 10px rgba(192,120,40,0.42);
+    }
+
+    .slot.is-active::after {
+      content: '';
+      position: absolute;
+      inset: 4px;
+      border-radius: 50%;
+      background: var(--pin);
+      box-shadow: 0 0 7px rgba(192,120,40,0.65);
+    }
+
+    .slot.is-active.is-goal {
+      border-color: var(--solved-pin);
+      background: #132010;
+      box-shadow: 0 0 12px rgba(80,176,40,0.42);
+    }
+
+    .slot.is-active.is-goal::after {
+      background: var(--solved-pin);
+      box-shadow: 0 0 7px rgba(80,176,40,0.65);
+    }
+
+    /* slot-num removed (horizontal layout uses title tooltip) */
+
+    .plate-row.excluded { opacity: 0.38; }
+    .cell-btn.excluded { color: var(--dim) !important; }
+
+    /* readonly slots (in solution preview) */
+    .slot.readonly { cursor: default; }
+    .slot.readonly:hover { border-color: var(--slot-border); background: var(--slot-bg); }
+    .slot.readonly.is-goal:hover { border-color: var(--goal-border); background: var(--goal-bg); }
+    .slot.readonly.is-active:hover { border-color: var(--pin); background: #1e1208; }
+    .slot.readonly.is-active.is-goal:hover { border-color: var(--solved-pin); background: #132010; }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 12px;
+      margin-top: 8px;
+    }
+
+    .cfooter td {
+      padding-top: 8px;
+      vertical-align: middle;
+    }
+    .cfooter-slots { text-align: left; padding-right: 8px; }
+    .cfooter-sep { }
+    .cfooter-mat  { border-left: 2px solid var(--border2); }
+    .combined-table .cfooter-mat { padding-left: 8px; }
+    .cfooter-slots .legend { margin-top: 0; justify-content: center; }
+    .cfooter-mat .legend { margin-top: 0; flex-wrap: nowrap; white-space: nowrap; justify-content: center; }
+    .cfooter-mat .legend-item { white-space: nowrap; }
+    .mat-leg-swatch {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 18px; height: 16px; border-radius: 3px; border: 1px solid;
+      font-family: 'Cinzel', serif; font-size: 10px; font-weight: 700;
+      flex-shrink: 0;
+    }
+    .mat-leg-swatch.vp { background: var(--mat-pos-bg); border-color: #28501a; color: var(--mat-pos); }
+    .mat-leg-swatch.vn { background: var(--mat-neg-bg); border-color: #58180a; color: var(--mat-neg); }
+    .mat-leg-swatch.vz { background: var(--bg2); border-color: var(--border); color: var(--border2); }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .legend-dot {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      border: 1px solid;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .ld-empty  { border-color: var(--slot-border); background: var(--slot-bg); }
+    .ld-goal   { border-color: var(--goal-border);  background: var(--goal-bg); }
+    .ld-pin    { border-color: var(--pin);           background: #1e1208; }
+    .ld-pin::after    { content: ''; position: absolute; inset: 2px; border-radius: 50%; background: var(--pin); }
+    .ld-solved { border-color: var(--solved-pin);    background: #132010; }
+    .ld-solved::after { content: ''; position: absolute; inset: 2px; border-radius: 50%; background: var(--solved-pin); }
+
+    /* ── Matrix ──────────────────────────────────── */
+    .matrix-hint {
+      font-size: 11px;
+      color: var(--muted);
+      font-style: italic;
+      line-height: 1.35;
+      margin-bottom: 6px;
+      white-space: normal;
+    }
+
+    .matrix-hint strong { color: var(--text2); font-style: normal; }
+
+    .matrix-wrap {
+      overflow-x: auto;
+      max-width: 100%;
+    }
+
+    .matrix-table { border-collapse: collapse; }
+
+    .matrix-table th {
+      font-family: 'Cinzel', serif;
+      font-size: 11px;
+      color: var(--gold);
+      letter-spacing: 0.06em;
+      padding: 4px 6px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    .matrix-table th.rh {
+      text-align: right;
+      color: var(--muted);
+      font-size: 10px;
+      padding-right: 8px;
+    }
+
+    .matrix-table td { padding: 2px; text-align: center; height: 30px; }
+
+    .cell-btn {
+      width: 30px;
+      height: 26px;
+      border-radius: 3px;
+      border: 1px solid var(--border);
+      background: var(--step-bg);
+      color: var(--muted);
+      font-family: 'Cinzel', serif;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.12s;
+      user-select: none;
+      margin: 2px 0;
+    }
+
+    .cell-btn:hover:not(:disabled) { border-color: var(--border2); background: var(--bg4); }
+
+    .cell-btn.vp {
+      background: var(--mat-pos-bg);
+      border-color: #28501a;
+      color: var(--mat-pos);
+    }
+
+    .cell-btn.vn {
+      background: var(--mat-neg-bg);
+      border-color: #58180a;
+      color: var(--mat-neg);
+    }
+
+    .cell-btn:disabled {
+      cursor: default;
+      border-color: var(--border);
+      color: var(--border2);
+      background: var(--bg2);
+      font-size: 9px;
+    }
+
+    .btn-tips {
+      width: 26px; height: 26px;
+      border: 1px solid var(--border2);
+      background: var(--bg3);
+      color: var(--muted);
+      font-family: 'Cinzel', serif;
+      font-size: 13px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all 0.13s;
+      flex-shrink: 0;
+    }
+    .btn-tips:hover, .btn-tips.active {
+      border-color: var(--gold);
+      color: var(--gold2);
+      background: var(--bg4);
+    }
+
+    .tips-box {
+      margin-top: 8px;
+      padding: 8px 10px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      display: none;
+    }
+    .tips-box.open { display: block; margin-bottom: 10px; }
+
+    .tips-box dl {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 4px 10px;
+      margin: 0;
+    }
+    .tips-box dt {
+      font-family: 'Cinzel', serif;
+      font-size: 10px;
+      color: var(--gold);
+      white-space: nowrap;
+      padding-top: 1px;
+    }
+    .tips-box dd {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.4;
+      margin: 0;
+    }
+    .tips-box dd strong { color: var(--text); font-style: normal; }
+    .tips-box .tip-key {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--bg4); border: 1px solid var(--border2);
+      border-radius: 3px; font-family: 'Cinzel', serif;
+      font-size: 10px; padding: 0px 5px; line-height: 1.5;
+      color: var(--text2);
+    }
+
+    .btn {
+      padding: 7px 13px;
+      border: 1px solid var(--border2);
+      background: var(--bg3);
+      color: var(--text);
+      font-family: 'Cinzel', serif;
+      font-size: 12px;
+      letter-spacing: 0.07em;
+      border-radius: 2px;
+      cursor: pointer;
+      transition: all 0.14s;
+    }
+
+    .btn:hover { background: var(--bg4); border-color: var(--gold); color: var(--gold2); }
+
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #3a2810 0%, #574018 100%);
+      border-color: var(--gold);
+      color: var(--gold2);
+      font-size: 13px;
+      font-weight: 700;
+      padding: 8px 12px;
+      box-shadow: 0 2px 14px rgba(0,0,0,0.45);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: linear-gradient(135deg, #4a3418 0%, #7a5a28 100%);
+      box-shadow: 0 0 18px rgba(180,130,40,0.32);
+      color: var(--gold3);
+    }
+
+    /* ── Solution ────────────────────────────────── */
+    .step-pattern {
+      grid-column: span 2;
+      display: flex;
+      align-items: stretch;
+      background: var(--step-bg);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--gold);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .pattern-reps {
+      font-family: 'Cinzel', serif;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--gold2);
+      padding: 0 8px;
+      display: flex;
+      align-items: center;
+      border-right: 1px solid var(--border2);
+      flex-shrink: 0;
+      background: var(--bg3);
+    }
+    .pattern-tiles { display: flex; flex: 1; }
+    .ptile {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      gap: 2px;
+      padding: 4px 4px;
+    }
+    .ptile + .ptile { border-left: 1px solid var(--border); }
+    .ptile .sp { padding: 6px 2px; font-size: 14px; }
+    .ptile .sc { font-size: 13px; padding: 0 4px 0 0; }
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .sol-count strong { color: var(--gold2); font-family: 'Cinzel', serif; }
+
+    .step-list {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 4px;
+    }
+
+    .step-item {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      background: var(--step-bg);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--border2);
+      border-radius: 3px;
+      overflow: hidden;
+      cursor: default;
+      user-select: none;
+    }
+
+    .sn {
+      font-size: 9px;
+      color: var(--dim);
+      padding: 0 6px;
+      flex-shrink: 0;
+      min-width: 26px;
+      text-align: center;
+    }
+
+    .sp {
+      font-family: 'Cinzel', serif;
+      font-size: 16px;
+      font-weight: 700;
+      flex: 1;
+      padding: 8px 4px;
+      text-align: center;
+    }
+
+    .key-wrap {
+      flex-shrink: 0;
+      padding: 0 6px;
+    }
+
+    .key {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--bg4); border: 1px solid var(--border2);
+      border-radius: 3px; font-family: 'Cinzel', serif;
+      font-size: 13px; font-weight: 700; padding: 3px 8px;
+      line-height: 1; color: var(--text2);
+    }
+    .key.kd { border-color: var(--mat-pos); color: var(--mat-pos); background: #081808; }
+    .key.ka { border-color: var(--mat-neg); color: var(--mat-neg); background: #180808; }
+
+    .sc {
+      font-family: 'Cinzel', serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text2);
+      padding: 0 8px 0 2px;
+      flex-shrink: 0;
+      min-width: 28px;
+      text-align: center;
+    }
+
+    .solved-banner {
+      margin-top: 6px;
+      padding: 6px 10px;
+      background: #0a1c05;
+      border: 1px solid #306018;
+      border-radius: 3px;
+      color: #68c038;
+      font-size: 12px;
+    }
+
+    .no-sol {
+      padding: 14px 8px;
+      text-align: center;
+      color: var(--mat-neg);
+      font-style: italic;
+      font-size: 15px;
+    }
+    .setup-guide {
+      padding: 10px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .setup-step {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+    .setup-num {
+      font-family: 'Cinzel', serif;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gold);
+      background: var(--bg4);
+      border: 1px solid var(--border2);
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .setup-text {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .setup-text em { font-style: normal; color: var(--text2); }
+    .setup-text .sv { font-family:'Cinzel',serif; font-weight:700; font-size:12px; }
+    .setup-text .sv.vp { color: var(--mat-pos); }
+    .setup-text .sv.vn { color: var(--mat-neg); }
+
+    .already-solved {
+      padding: 14px 8px;
+      text-align: center;
+      color: var(--mat-pos);
+      font-size: 13px;
+    }
+
+</style>
+</head>
+<body>
+
+<main>
+
+  <!-- ── Single panel ─────────────────────────────────── -->
+  <div class="card">
+
+    <div class="panel-top">
+      <div class="panel-title">
+        <svg viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="7" y="17" width="24" height="17" rx="2" stroke="#b07828" stroke-width="1.4" fill="#181008"/>
+          <path d="M12 17V12.5a7 7 0 0 1 14 0V17" stroke="#b07828" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+          <circle cx="19" cy="26" r="3" fill="#c07828" opacity="0.85"/>
+          <line x1="19" y1="29" x2="19" y2="31.5" stroke="#c07828" stroke-width="1.5" stroke-linecap="round" opacity="0.85"/>
+        </svg>
+        <div>
+          <h1>Lockpick Solver</h1>
+          <p>Gothic 1 Remake</p>
+        </div>
+      </div>
+      <div class="panel-btns">
+        <button class="btn-tips" id="btn-tips" title="Tips">?</button>
+        <button class="btn" id="btn-reset">Reset</button>
+        <button class="btn btn-primary" id="btn-solve">⚿&nbsp;Solve</button>
+      </div>
+    </div>
+
+    <div class="tips-box" id="tips-box">
+      <dl>
+        <dt>Controls</dt>
+        <dd><kbd class="tip-key">W</kbd><kbd class="tip-key">S</kbd> select plate &nbsp;&middot;&nbsp; <kbd class="tip-key">A</kbd>&nbsp;moves plate <strong>←</strong> &nbsp;&middot;&nbsp; <kbd class="tip-key">D</kbd>&nbsp;moves plate <strong>→</strong></dd>
+        <dt>Matrix</dt>
+        <dd>Press <kbd class="tip-key">D</kbd> on a plate &mdash; cell = effect on others: <strong style="color:var(--mat-pos)">+</strong>&nbsp;same direction, <strong style="color:var(--mat-neg)">&minus;</strong>&nbsp;opposite, <strong>&ndash;</strong>&nbsp;none</dd>
+        <dt>Discover</dt>
+        <dd>Quicksave &rarr; nudge one plate &rarr; note what moved &rarr; reload. Repeat per plate.</dd>
+      </dl>
+    </div>
+
+    <div class="panel-body">
+      <table id="combined-wrap"></table>
+    </div>
+
+  </div>
+
+  <!-- ── Solution ─────────────────────────────────────── -->
+  <div class="card" id="sol-card" style="display:none">
+    <div id="sol-content"></div>
+
+  </div>
+
+</main>
+
+<script>
+// ─── Plate colors ────────────────────────────────────────────────────────────
+const PLATE_COLORS = ['#e87840','#50aadc','#a060d0','#50c060','#d0a030','#d05878'];
+
+const N = 6;
+let pins   = [];     // pins[p] = 0 (excluded) or 1-7 (starting position)
+let matrix = [];     // matrix[i][j] = effect on plate j when plate i moves R
+                     // diagonal always = 1
+let solution    = undefined;   // undefined=not tried, null=no solution, []=moves
+
+// ─── Persistence ─────────────────────────────────────────────────────────────
+const SAVE_KEY = 'g1r_lockpick';
+function saveState() {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ pins, matrix })); } catch(e) {}
+}
+function loadState() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    const { pins: p, matrix: m } = JSON.parse(raw);
+    if (Array.isArray(p) && p.length === N &&
+        Array.isArray(m) && m.length === N &&
+        m.every(r => Array.isArray(r) && r.length === N)) {
+      pins = p; matrix = m; return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
+// ─── Bootstrap ───────────────────────────────────────────────────────────────
+function resetState() {
+  pins   = Array(N).fill(0);
+  matrix = Array.from({ length: N }, (_, i) =>
+    Array.from({ length: N }, (_, j) => (i === j ? 1 : 0))
+  );
+  solution   = undefined;
+  saveState();
+}
+
+function init() {
+  if (!loadState()) resetState();
+  if (pins.some(v => v > 0)) solution = bfsSolve(pins);
+  renderCombined();
+  renderSolution();
+}
+
+// ─── Combined lock + matrix table ─────────────────────────────────────────────
+function renderCombined() {
+  const tbl = document.createElement('table');
+  tbl.className = 'combined-table';
+
+  // ── Header row ──
+  const thead = tbl.createTHead();
+  const hr = thead.insertRow();
+
+  const corner = document.createElement('th');
+  corner.className = 'ch-corner';
+  hr.appendChild(corner);
+
+  for (let s = 1; s <= 7; s++) {
+    const th = document.createElement('th');
+    th.className = 'ch-slot';
+    th.textContent = s;
+    hr.appendChild(th);
+  }
+
+  const sepH = document.createElement('th');
+  sepH.className = 'ch-sep';
+  hr.appendChild(sepH);
+
+  for (let j = 0; j < N; j++) {
+    const th = document.createElement('th');
+    th.className = 'ch-mat' + (j === 0 ? ' first-mat' : '');
+    th.textContent = `P${j + 1}`;
+    th.style.color = pins[j] === 0 ? 'var(--dim)' : PLATE_COLORS[j % PLATE_COLORS.length];
+    if (j === 0) th.title = 'Each row = a plate you press D on. Each cell = effect on the column plate: + same direction, − opposite, – none.';
+    hr.appendChild(th);
+  }
+
+  // ── Body rows ──
+  const tbody = tbl.createTBody();
+  for (let p = 0; p < N; p++) {
+    const excluded = pins[p] === 0;
+    const tr = tbody.insertRow();
+    if (excluded) tr.classList.add('row-excluded');
+
+    // Plate label
+    const lbl = document.createElement('th');
+    lbl.className = 'cplbl';
+    lbl.textContent = `P${p + 1}`;
+    lbl.style.color = excluded ? 'var(--dim)' : PLATE_COLORS[p % PLATE_COLORS.length];
+    tr.appendChild(lbl);
+
+    // 7 slot cells
+    for (let s = 1; s <= 7; s++) {
+      const td = tr.insertCell();
+      td.className = 'cslot';
+      const slot = document.createElement('div');
+      const active = pins[p] === s;
+      const goal   = s === 4;
+      slot.className = 'slot'
+        + (goal   ? ' is-goal'   : '')
+        + (active ? ' is-active' : '');
+      slot.title = `Slot ${s}`;
+      slot.addEventListener('click', () => {
+        pins[p] = (pins[p] === s) ? 0 : s;
+        solution = undefined;
+        saveState();
+        renderCombined();
+        renderSolution();
+      });
+      td.appendChild(slot);
+    }
+
+    // Separator cell
+    const sep = tr.insertCell();
+    sep.className = 'csep';
+
+    // Matrix cells
+    for (let j = 0; j < N; j++) {
+      const td = tr.insertCell();
+      td.className = 'cmat' + (j === 0 ? ' first-mat' : '');
+      const btn = document.createElement('button');
+      btn.className = 'cell-btn';
+      const v = matrix[p][j];
+      if (v > 0) { btn.textContent = '+'; btn.classList.add('vp'); }
+      else if (v < 0) { btn.textContent = '−'; btn.classList.add('vn'); }
+      else { btn.textContent = '–'; }
+
+      if (p === j) {
+        btn.disabled = true;
+        btn.textContent = '●';
+      } else if (excluded || pins[j] === 0) {
+        btn.disabled = true;
+        btn.classList.add('excluded');
+      } else {
+        btn.addEventListener('click', () => {
+          const cur = matrix[p][j];
+          matrix[p][j] = cur === 0 ? 1 : cur === 1 ? -1 : 0;
+          solution = undefined;
+          saveState();
+          renderCombined();
+          renderSolution();
+        });
+      }
+      td.appendChild(btn);
+    }
+  }
+
+  // ── Footer row (legends) ──
+  const tfoot = tbl.createTFoot();
+  const fr = tfoot.insertRow();
+  fr.className = 'cfooter';
+
+  const ftSlots = fr.insertCell();
+  ftSlots.className = 'cfooter-slots';
+  ftSlots.colSpan = 1 + 7; // label + 7 slots
+  ftSlots.innerHTML = `
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot ld-empty"></div>Excluded</div>
+      <div class="legend-item"><div class="legend-dot ld-goal"></div>Goal&nbsp;4</div>
+      <div class="legend-item"><div class="legend-dot ld-pin"></div>Pin</div>
+    </div>`;
+
+  const ftSep = fr.insertCell();
+  ftSep.className = 'cfooter-sep';
+
+  const ftMat = fr.insertCell();
+  ftMat.className = 'cfooter-mat';
+  ftMat.colSpan = N;
+  ftMat.innerHTML = `
+    <div class="legend">
+      <div class="legend-item"><span class="mat-leg-swatch vp">+</span>&nbsp;same&nbsp;dir</div>
+      <div class="legend-item"><span class="mat-leg-swatch vn">&minus;</span>&nbsp;opposite</div>
+      <div class="legend-item"><span class="mat-leg-swatch vz">&ndash;</span>&nbsp;no&nbsp;effect</div>
+    </div>`;
+
+  const el = document.getElementById('combined-wrap');
+  el.replaceWith(tbl);
+  tbl.id = 'combined-wrap';
+}
+
+// ─── BFS Solver ───────────────────────────────────────────────────────────────
+function encode(state) {
+  let k = 0;
+  for (let i = 0; i < N; i++) k |= (state[i] << (i * 3));
+  return k;
+}
+
+function decode(k) {
+  const s = [];
+  for (let i = 0; i < N; i++) s.push((k >> (i * 3)) & 7);
+  return s;
+}
+
+function bfsSolve(initial) {
+  const active = [];
+  for (let p = 0; p < N; p++) if (initial[p] > 0) active.push(p);
+  if (active.length === 0) return null;
+
+  const goal = Array(N).fill(0);
+  for (const p of active) goal[p] = 4;
+  const goalKey = encode(goal);
+  const initKey = encode(initial);
+  if (initKey === goalKey) return [];
+
+  const visited = new Map();
+  const queue   = [initKey];
+  let head = 0;
+  visited.set(initKey, null);
+
+  while (head < queue.length) {
+    const stateKey = queue[head++];
+    const state    = decode(stateKey);
+
+    for (const p of active) {
+      for (const dir of [1, -1]) {
+        const ns  = [...state];
+        let   ok  = true;
+
+        for (let j = 0; j < N; j++) {
+          if (state[j] === 0) continue;   // excluded plate stays 0
+          ns[j] = state[j] + dir * matrix[p][j];
+          if (ns[j] < 1 || ns[j] > 7) { ok = false; break; }
+        }
+
+        if (!ok) continue;
+
+        const nk = encode(ns);
+        if (visited.has(nk)) continue;
+
+        visited.set(nk, { prev: stateKey, move: { plate: p, dir } });
+
+        if (nk === goalKey) {
+          const path = [];
+          let cur = nk;
+          while (visited.get(cur) !== null) {
+            const { prev, move } = visited.get(cur);
+            path.unshift(move);
+            cur = prev;
+          }
+          return path;
+        }
+
+        queue.push(nk);
+      }
+    }
+  }
+  return null;
+}
+
+
+// ─── Actions ──────────────────────────────────────────────────────────────────
+document.getElementById('btn-solve').addEventListener('click', () => {
+  solution = bfsSolve(pins);
+  renderSolution();
+});
+
+document.getElementById('btn-tips').addEventListener('click', () => {
+  const box = document.getElementById('tips-box');
+  const btn = document.getElementById('btn-tips');
+  const open = box.classList.toggle('open');
+  btn.classList.toggle('active', open);
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  resetState();
+  renderCombined();
+  renderSolution();
+});
+
+// ─── Consolidate moves ───────────────────────────────────────────────────────
+// Bubble-sort independent moves to group same-plate runs.
+// Two adjacent moves commute if applying either first keeps all plates in [1,7].
+function consolidateMoves(moves) {
+  const m = moves.slice();
+
+  function computeStates(seq) {
+    const st = [pins.slice()];
+    for (let i = 0; i < seq.length; i++) {
+      const s = st[i].slice();
+      const { plate: p, dir: d } = seq[i];
+      for (let j = 0; j < N; j++) { if (s[j] > 0) s[j] += d * matrix[p][j]; }
+      st.push(s);
+    }
+    return st;
+  }
+
+  // Up to O(n²) passes — enough to fully sort, avoids infinite loop
+  const maxPasses = m.length * m.length + 1;
+  for (let pass = 0; pass < maxPasses; pass++) {
+    let swapped = false;
+    const st = computeStates(m);
+    for (let i = 0; i < m.length - 1; i++) {
+      if (m[i].plate === m[i + 1].plate) continue;
+      // Only swap if m[i+1] joins a run immediately behind it
+      const prevPlate = i > 0 ? m[i - 1].plate : -1;
+      if (prevPlate !== m[i + 1].plate) continue;
+      // Check: applying m[i+1] to state st[i] stays in bounds
+      const { plate: pb, dir: db } = m[i + 1];
+      let ok = true;
+      for (let j = 0; j < N; j++) {
+        if (st[i][j] === 0) continue;
+        const nv = st[i][j] + db * matrix[pb][j];
+        if (nv < 1 || nv > 7) { ok = false; break; }
+      }
+      if (!ok) continue;
+      [m[i], m[i + 1]] = [m[i + 1], m[i]];
+      swapped = true;
+    }
+    if (!swapped) break;
+  }
+  return m;
+}
+
+// ─── Detect repeating group patterns ───────────────────────────────────────────────────
+function buildGroupPatterns(groups) {
+  const result = [];
+  let i = 0;
+  while (i < groups.length) {
+    let found = false;
+    const maxL = Math.min(3, Math.floor((groups.length - i) / 2));
+    for (let L = maxL; L >= 2; L--) {
+      const pattern = groups.slice(i, i + L);
+      let reps = 1;
+      while (i + (reps + 1) * L <= groups.length) {
+        let match = true;
+        for (let k = 0; k < L; k++) {
+          const a = pattern[k], b = groups[i + reps * L + k];
+          if (a.plate !== b.plate || a.dir !== b.dir || a.count !== b.count) { match = false; break; }
+        }
+        if (!match) break;
+        reps++;
+      }
+      if (reps >= 2) {
+        result.push({ type: 'pattern', pattern, reps });
+        i += reps * L;
+        found = true;
+        break;
+      }
+    }
+    if (!found) { result.push({ type: 'single', group: groups[i] }); i++; }
+  }
+  return result;
+}
+
+// ─── Render solution ──────────────────────────────────────────────────────────
+function renderSolution() {
+  const card    = document.getElementById('sol-card');
+  const content = document.getElementById('sol-content');
+
+  if (solution === undefined) { solution = null; }
+  card.style.display = '';
+  content.innerHTML  = '';
+
+  // ── No solution ──
+  if (solution === null) {
+    const hasActive = pins.some(v => v > 0);
+    if (hasActive) {
+      content.innerHTML = `<div class="no-sol">No solution found — verify the matrix, some connections may be missing or incorrect.</div>`;
+    } else {
+      content.innerHTML = `<div class="setup-guide">
+        <div class="setup-step">
+          <span class="setup-num">1</span>
+          <span class="setup-text">Click a slot on each active plate to set its <em>starting position</em>.</span>
+        </div>
+        <div class="setup-step">
+          <span class="setup-num">2</span>
+          <span class="setup-text">Fill in the matrix: press <em>D</em> on each plate in-game and note which other plates move —
+            <span class="sv vp">+</span> if it moves the <em>same direction</em>,
+            <span class="sv vn">&minus;</span> if it moves the <em>opposite direction</em>.
+          </span>
+        </div>
+        <div class="setup-step">
+          <span class="setup-num">3</span>
+          <span class="setup-text">Press <em>Solve</em> to generate the step-by-step solution.</span>
+        </div>
+      </div>`;
+    }
+    return;
+  }
+
+  // ── Already solved ──
+  if (solution.length === 0) {
+    content.innerHTML = '<div class="already-solved">✓ Already solved — all pins are at position 4.</div>';
+    return;
+  }
+
+  // ── Count header ──
+  const count = document.createElement('div');
+  count.className = 'sol-count';
+  count.innerHTML = `Solution: <strong>${solution.length}</strong> move${solution.length !== 1 ? 's' : ''}`;
+  content.appendChild(count);
+
+  function buildStepList(moves) {
+    const stepList = document.createElement('div');
+    stepList.className = 'step-list';
+
+    // Build groups of consecutive same plate+dir
+    const groups = [];
+    let gi = 0;
+    while (gi < moves.length) {
+      const { plate, dir } = moves[gi];
+      let cnt = 1;
+      while (gi + cnt < moves.length &&
+             moves[gi + cnt].plate === plate &&
+             moves[gi + cnt].dir   === dir) cnt++;
+      groups.push({ plate, dir, start: gi, end: gi + cnt - 1, count: cnt });
+      gi += cnt;
+    }
+
+    const segments = buildGroupPatterns(groups);
+
+    segments.forEach(seg => {
+      if (seg.type === 'single') {
+        const { plate, dir, start, end, count } = seg.group;
+        const item = document.createElement('div');
+        item.className = 'step-item';
+        const keyLetter = dir === 1 ? 'R' : 'L';
+        const keyClass  = dir === 1 ? 'kd' : 'ka';
+        const color     = PLATE_COLORS[plate % PLATE_COLORS.length];
+        item.style.borderLeftColor = color;
+        item.innerHTML =
+          `<span class="sp" style="color:${color}">P${plate+1}</span>` +
+          `<span class="key-wrap"><kbd class="key ${keyClass}">${keyLetter}</kbd></span>` +
+          `<span class="sc">×${count}</span>`;
+        stepList.appendChild(item);
+      } else {
+        const blk = document.createElement('div');
+        blk.className = 'step-pattern';
+        const repsEl = document.createElement('span');
+        repsEl.className = 'pattern-reps';
+        repsEl.textContent = `↻${seg.reps}`;
+        blk.appendChild(repsEl);
+        const tilesEl = document.createElement('div');
+        tilesEl.className = 'pattern-tiles';
+        seg.pattern.forEach(g => {
+          const tile = document.createElement('div');
+          tile.className = 'ptile';
+          const kl = g.dir === 1 ? 'R' : 'L';
+          const kc = g.dir === 1 ? 'kd' : 'ka';
+          const c  = PLATE_COLORS[g.plate % PLATE_COLORS.length];
+          tile.innerHTML =
+            `<span class="sp" style="color:${c}">P${g.plate+1}</span>` +
+            `<span class="key-wrap"><kbd class="key ${kc}">${kl}</kbd></span>` +
+            (g.count > 1 ? `<span class="sc">×${g.count}</span>` : '');
+          tilesEl.appendChild(tile);
+        });
+        blk.appendChild(tilesEl);
+        stepList.appendChild(blk);
+      }
+    });
+
+    content.appendChild(stepList);
+  }
+
+  buildStepList(solution);
+}
+
+// ─── Start ────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
