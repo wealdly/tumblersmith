@@ -1,4 +1,4 @@
-# Gothic 1 Remake — Lockpick Solver
+# Gothic 1 Remake — Lockpick Helper
 
 A browser-based companion tool for the lockpicking minigame in **Gothic 1 Remake**. Enter your plate positions and interaction matrix, and get an optimal step-by-step solution instantly.
 
